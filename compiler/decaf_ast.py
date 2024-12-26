@@ -31,7 +31,20 @@ def combine_resolve_maps(map1, map2):
     return new_map
 
 
+def print_error_msg(msg):
+    red_text = '\033[91m'
+    white_text = '\033[0m'
+
+    print(f"{red_text}Error: {msg}{white_text}", file=sys.stderr)
+
 class Variable_Table:
+
+    def to_dict(self):
+        res = []
+        for entry in self.vars:
+            res.append({'id': entry[0] , 'name' : entry[1] , 'kind' : entry[2], 'type' : entry[3]})
+        return res
+
 
     def __init__(self):
         
@@ -54,14 +67,6 @@ class Variable_Table:
             return_str += f'VARIABLE {i[0]}, {i[1]}, {i[2]}, {i[3]}\n'
         return return_str
 
-
-
-
-
-
-#class Variable_Record:
-#    def __init__(self, name, id, kind, type):
-#        pass
 
 class Type_Record:
     
@@ -111,6 +116,12 @@ class Variable_Declaration:
 
 #can have nested blocks
 class Block_Stmt:
+    
+    def to_dict(self):
+        res = []
+        for statement in self.statements:
+            res.append(statement.to_dict())
+        return res
 
     def get_this_expressions_to_resolve(self) -> List:
         return self.this_expressions_to_resolve
@@ -173,7 +184,7 @@ class Block_Stmt:
                 
                 
             else:
-                
+               
                 vars_to_resolve = statement.get_var_names_to_resolve()
                 
 
@@ -214,6 +225,14 @@ class Block_Stmt:
         return return_str
 
 class If_Statement:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'if'
+        res['condition'] = self.if_expression.to_dict()
+        res['then_statement'] = self.then_statement.to_dict()
+        res['else_statement'] = self.else_statement.to_dict()
+        return res
   
     def get_this_expressions_to_resolve(self) -> List:
         return list(set(self.if_expression.get_this_expressions_to_resolve() + self.then_statement.get_this_expressions_to_resolve() + self.else_statement.get_this_expressions_to_resolve()))
@@ -228,16 +247,20 @@ class If_Statement:
         return [self]
 
     def type_check(self, ast, cur_class):
-        if self.if_expression.compute_type(ast, cur_class) != decaf_typecheck.BaseType.BOOL:
-            print("ERROR: if statement not boolean")
+        
+        data_type = self.if_expression.compute_type(ast, cur_class)
+        
+        if data_type == decaf_typecheck.BaseType.ERROR:
+            return False
+        
+        if data_type != decaf_typecheck.BaseType.BOOL:
+            print_error_msg(f"If statement condition must be boolean. Got type {data_type} instead")
             return False
 
         if self.then_statement.type_check(ast, cur_class) == False:
-            print("ERROR: if statement - type error in then statement")
             return False
 
         if self.else_statement.type_check(ast, cur_class) == False:
-            print("ERROR: if statement - type error in else statement")
             return False
 
         return True
@@ -266,6 +289,13 @@ class If_Statement:
 
 class While_Statement:
 
+    def to_dict(self):
+        res = {}
+        res['type'] = 'while'
+        res['condition'] = self.loop_condition.to_dict()
+        res['body'] = self.loop_body.to_dict()
+        return res
+
     def type_check(self, ast, cur_class):
             if self.loop_condition.compute_type(ast, cur_class) != decaf_typecheck.BaseType.BOOL:
                 print("ERROR: while loop condition is not boolean")
@@ -282,8 +312,6 @@ class While_Statement:
         return res
   
     def __init__(self, loop_condition, loop_body):
-        #self.loop_condition = copy.deepcopy(loop_condition)
-        #self.loop_body = copy.deepcopy(loop_body)
         self.loop_condition = loop_condition
         self.loop_body = loop_body
   
@@ -291,6 +319,15 @@ class While_Statement:
         return f'While({self.loop_condition},{self.loop_body})'
 
 class For_Statement:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'for'
+        res['initialize_expression'] = self.initializer_expression.to_dict()
+        res['loop_condition'] = self.loop_condition.to_dict()
+        res['update_expression'] = self.update_expression.to_dict()
+        res['body'] = self.loop_body.to_dict()
+        return res
 
     def get_this_expressions_to_resolve(self) -> List:
         return list(set(self.initializer_expression.get_this_expressions_to_resolve() + self.loop_condition.get_this_expressions_to_resolve() + self.update_expression.get_this_expressions_to_resolve() + self.loop_body.get_this_expressions_to_resolve()))
@@ -346,14 +383,17 @@ class For_Statement:
 
 class Expression_Statement:
     
+    def to_dict(self):
+        res = {}
+        res['expression'] = self.expression.to_dict()
+        return res
+    
     def get_expression(self):
         return self.expression
     
     def type_check(self, ast, cur_class):
         
         if self.expression.compute_type(ast, cur_class) == decaf_typecheck.BaseType.ERROR:
-            
-            print(f"ERROR IN EXPRESSION STATEMENT: {type(self.expression)}")
             return False
         
         return True
@@ -373,24 +413,58 @@ class Expression_Statement:
        return f'Expr-stmt({self.expression})'
 
 class Break_Statement:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'break'
+        return res
   
-   def __init__(self):
-       pass
+    def get_var_names_to_resolve(self):
+        return {}
+    
+    def type_check(self, ast, cur_class):
+        return True
+    
+    def get_this_expressions_to_resolve(self):
+        return []
+  
+    def __init__(self):
+        pass
 
 
-   def __str__(self):
+    def __str__(self):
        return f'Break'
 
 class Continue_Statement:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'continue'
+        return res
+    
+    def type_check(self, ast, cur_class):
+        return True
+    
+    def get_var_names_to_resolve(self):
+        return {}
+    
+    def get_this_expressions_to_resolve(self):
+        return []
 
-   def __init__(self):
+    def __init__(self):
        pass
 
 
-   def __str__(self):
+    def __str__(self):
        return f'Continue'
 
 class Skip_Statement:
+    
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'skip'
+        return res
     
     def compute_type(self, ast, cur_class):
         return 'void'
@@ -413,6 +487,15 @@ class Skip_Statement:
 
 class Assign_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'assign'
+        res['lhs'] = self.left_hand_side.to_dict()
+        res['rhs'] = self.right_hand_side.to_dict()
+        res['data_type'] = self.type
+        return res
+        
+    
     def get_this_expressions_to_resolve(self) -> List:
         return list(set(self.left_hand_side.get_this_expressions_to_resolve() + self.right_hand_side.get_this_expressions_to_resolve()))
 
@@ -421,31 +504,20 @@ class Assign_Expression:
 
     def compute_type(self, ast, cur_class):
         
-
         if self.left_hand_side.compute_type(ast, cur_class) == decaf_typecheck.BaseType.ERROR or self.right_hand_side.compute_type(ast, cur_class) == decaf_typecheck.BaseType.ERROR:
             
             self.type = decaf_typecheck.BaseType.ERROR
-            print(f"ERROR A: {self}")
             return self.type
             
             
         if not decaf_typecheck.is_subtype(self.right_hand_side.get_type(), self.left_hand_side.get_type(), ast):
             self.type = decaf_typecheck.BaseType.ERROR
-            print(type(self.right_hand_side.get_type()))
-            print(f"{self.right_hand_side}")
-            print(f"ERROR B: {self}")
+           
+            print_error_msg("RHS of = operator must be a subtye of LHS")
             
-            
-            print("Error in assignment statement. RHS not subtype of LHS:")
-            print(f"LHS {self.left_hand_side} (type: {type(self.left_hand_side.get_type())})")
-            print(f"RHS {self.right_hand_side} (type: {type(self.right_hand_side.get_type())}) - {self.right_hand_side.get_type()}")
-
             return self.type
             
         self.type = self.right_hand_side.get_type()
-        
-        if self.type == decaf_typecheck.BaseType.ERROR:
-            print(f"ERROR: {self}")
         
         return self.type
         
@@ -462,20 +534,25 @@ class Assign_Expression:
         return f'Expr(Assign({self.left_hand_side},{self.right_hand_side}, {self.left_hand_side.get_type()}, {self.right_hand_side.get_type()}))'
 
 class Field_Access_Expression:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'field_access'
+        res['base_expression'] = self.base_expression.to_dict()
+        res['field_name'] = self.field_name
+        res['field_id'] = self.id_of_field
+        res['data_type'] = self.type
+        return res
 
     def get_type(self):
         return self.type
 
-    #no type_check -error if bad
+    
     def compute_type(self, ast, cur_class): 
-        
-        
         
         if isinstance(self.base_expression, Variable_Reference):
             
             if str(self.base_expression.var).isdigit() == False:
-                
-                
                 rec = ast.get_class_record(self.base_expression.var)
                 
                 if rec == None:
@@ -489,41 +566,25 @@ class Field_Access_Expression:
         
         type_val : str = self.base_expression.compute_type(ast, cur_class)
         
-    
-        
-        
         if isinstance(type_val, decaf_typecheck.ClassObjectType):
             
             field_class_name = type_val.get_class_name()
-            
-            #id = ast.can_access_field("using class", self.field_name, field_class_name)
-            
+              
             self.id_of_field = ast.compute_id_from_field(field_class_name, self.field_name)
             
             self.type = ast.compute_type_from_field(field_class_name, self.field_name)
-            
-          
-            
-        elif decaf_typecheck.is_class_literal_type(type_val):
-            
-            field_class_name = decaf_typecheck.get_class_from_class_literal_type(type_val)
-            
+                
+        elif isinstance(type_val, decaf_typecheck.ClassLiteralType):
+                
+            field_class_name = type_val.get_class_name()
             
             self.type = ast.compute_type_from_field(field_class_name, self.field_name)
             self.id_of_field = ast.compute_id_from_field(field_class_name, self.field_name)
             
-            
-        
         else:
-            raise Exception("not implemented yet")
+            raise Exception(f"not implemented yet: {type(type_val)} - {self.base_expression}")
         
-        
-      
         return self.type
-        
-        
-        
-        #return None
         
     def get_this_expressions_to_resolve(self):
         return self.base_expression.get_this_expressions_to_resolve()
@@ -554,12 +615,18 @@ class Field_Access_Expression:
 
 class Binary_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'binary'
+        res['lhs'] = self.left_expr.to_dict()
+        res['rhs'] = self.right_expr.to_dict()
+        res['data_type'] = self.type
+        return res
+    
     def get_this_expressions_to_resolve(self) -> List:
         return list(set(self.left_expr.get_this_expressions_to_resolve() + self.right_expr.get_this_expressions_to_resolve()))
 
     def compute_type(self, ast, cur_class):
-
-       
 
         if self.operation in [Operation.ADD, Operation.SUBTRACT ,Operation.MULTIPLY, Operation.DIVIDE]:
             if self.left_expr.compute_type(ast, cur_class) == decaf_typecheck.BaseType.INT and self.right_expr.compute_type(ast, cur_class) == decaf_typecheck.BaseType.INT:
@@ -570,18 +637,16 @@ class Binary_Expression:
             if self.left_expr.compute_type(ast, cur_class) in a and self.right_expr.compute_type(ast, cur_class) in a:
                 self.type = decaf_typecheck.BaseType.FLOAT
                 return self.type
-            
-            
-
-            print("Arithmetic operation must happen on number")
-            print(self.right_expr)
+                        
+            print_error_msg("Arithmetic operations must happen on number")
+                        
             self.type = decaf_typecheck.BaseType.ERROR
             return self.type 
 
         if self.operation in  [Operation.LESSTHAN, Operation.LESSOREQUAL, Operation.GREATERTHAN, Operation.GREATEROREQUAL]:
             a = [decaf_typecheck.BaseType.INT, decaf_typecheck.BaseType.FLOAT]
             if self.left_expr.compute_type(ast, cur_class) not in a or self.right_expr.compute_type(ast, cur_class) not in a:
-                print("Arithmetic comparisons must happen on number")
+                print_error_msg("Arithmetic comparisons must happen on number")
                 
                 self.type = decaf_typecheck.BaseType.ERROR
                 return self.type
@@ -592,7 +657,7 @@ class Binary_Expression:
             if self.left_expr.compute_type(ast, cur_class) == decaf_typecheck.BaseType.BOOL and self.right_expr.compute_type(ast, cur_class) == decaf_typecheck.BaseType.BOOL:
                 self.type = decaf_typecheck.BaseType.BOOL
                 return self.type
-            print("Logic comparisons must happen on boolean")
+            print_error_msg("Logical comparisons must happen on boolean")
             self.type = decaf_typecheck.BaseType.ERROR
             return self.type
         
@@ -660,6 +725,13 @@ class Unary_Expression:
 
 class Constant_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'constant'
+        res['val'] = self.val
+        res['data_type'] = self.type
+        return res
+    
     def get_this_expressions_to_resolve(self) -> List:
         return []
 
@@ -686,6 +758,11 @@ class Constant_Expression:
         return f'Constant({self.val})'
 
 class This_Expression:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'this'
+        return res
     
     def get_var_names_to_resolve(self):
         return {}
@@ -720,6 +797,12 @@ class Super_Expression:
 
 class Return_Statement:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'return'
+        res['expression'] = self.expression.to_dict()
+        return res
+    
     
     def get_statements_list(self):
         return [ self ]
@@ -733,10 +816,8 @@ class Return_Statement:
     def type_check(self, ast, cur_class):
         
         if self.expression.compute_type(ast, cur_class) == decaf_typecheck.BaseType.ERROR:
-            print("ERROR in return statement")
             return False
-        
-        
+    
         return True
 
     def get_var_names_to_resolve(self):
@@ -751,6 +832,15 @@ class Return_Statement:
         return f'Return({self.expression})'
     
 class Constructor_Record:
+    
+    def to_dict(self):
+        res = {}
+        res['id'] = self.id
+        res['visibility'] = self.visibility
+        res['parameters'] = self.params
+        res['variables'] = self.variable_table.to_dict()
+        res['body'] = self.body.to_dict()
+        return res
     
     def type_check(self, ast, class_name):
         return self.body.type_check(ast, class_name)
@@ -831,6 +921,15 @@ class Constructor_Record:
     
 
 class Method_Record:
+    
+    def to_dict(self):
+        res = {}
+        res['id'] = self.id
+        res['visibility'] = self.visibility
+        res['parameters'] = self.params
+        res['variables'] = self.variable_table.to_dict()
+        res['body'] = self.body.to_dict()
+        return res
 
     def get_this_expressions_to_resolve(self) -> List[This_Expression]:
         return self.this_expressions_to_resolve
@@ -932,6 +1031,15 @@ class Method_Record:
         
         
 class Class_Record:
+
+
+    def to_dict(self):
+        res = {}
+        res['superclass'] = self.super_class_name
+        res['fields'] = [x.to_dict() for x in self.fields]
+        res['constructors'] = [x.to_dict() for x in self.constructors]
+        res['methods'] = [x.to_dict() for x in self.methods]
+        return res
 
     def get_field_id_from_name(self, field_name : str) -> Optional[int]:
         for field in self.fields:
@@ -1098,6 +1206,14 @@ class Class_Record:
 
 class Field_Record:
 
+    def to_dict(self):
+        res = {}
+        res['name'] = self.name
+        res['id'] = self.id
+        res['visibility'] = self.visibility
+        res['applicability'] = self.applicability
+        return res
+
     def get_name(self):
         return self.name
     
@@ -1182,6 +1298,16 @@ class New_Object_Expression:
 
 class Method_Call_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'method_call'
+        res['method_name'] = self.method_name
+        res['method_id'] = self.method_id
+        res['base_expression'] = self.base_expression.to_dict()
+        res['arguments'] = self.arguments
+        res['data_type'] = self.type
+        return res
+    
     def get_type(self):
         return self.type
 
@@ -1208,7 +1334,7 @@ class Method_Call_Expression:
                 
                 if rec == None:
                     self.type = decaf_typecheck.BaseType.ERROR
-                    print(f"ERROR {self.base_expression.var} is not a class name")
+                    print_error_msg(f"{self.base_expression.var} is not a class name")
                     return self.type
                 else:
                     #replace it
@@ -1242,7 +1368,7 @@ class Method_Call_Expression:
             
                 if method_record == None:
             
-                    print("ERROR method does not exist")
+                    print_error_msg("ERROR method does not exist")
                     self.type = decaf_typecheck.BaseType.ERROR
                     return self.type
             else:
@@ -1294,13 +1420,22 @@ class Method_Call_Expression:
 
 class Auto_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'auto'
+        res['expression'] = self.operand_expression
+        res['op_type'] = self.inc_dec
+        res['op_kind'] = self.post_pre
+        res['data_type'] = self.type
+        
+        return res
+    
     def compute_type(self, ast, cur_class):
         
         expr_type = self.operand_expression.compute_type(ast, cur_class)
         
         if expr_type not in [decaf_typecheck.BaseType.INT, decaf_typecheck.BaseType.FLOAT]:
             self.type = decaf_typecheck.BaseType.ERROR
-            print(f"auto expression has error type: {expr_type}")
             return self.type
 
         self.type = expr_type
@@ -1327,16 +1462,35 @@ class Auto_Expression:
     
 class Class_Reference_Expression:
     
+    def to_dict(self):
+        res = {}
+        res['type'] = 'class_reference'
+        res['data_type'] = self.type
+        return res
+    
     def compute_type(self, ast, cur_class):
-        return f'class-literal({self.class_name})'
+        return self.type
+    
+    def get_type(self):
+        return self.type
     
     def __init__(self, class_name : str):
         self.class_name = class_name
+        self.type = decaf_typecheck.ClassLiteralType(class_name)
         
     def __str__(self):
         return f'class-literal({self.class_name})'
 
 class Variable_Reference:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'variable_reference'
+        res['variable'] = self.var
+        res['data_type'] = self.type_name
+        
+        
+        return res
 
     def get_this_expressions_to_resolve(self) -> List:
         return []
@@ -1355,11 +1509,6 @@ class Variable_Reference:
     def set_type(self, type_name):
         self.type_name = type_name
        
-      
-
-        
-        
-
     def get_var(self):
         return self.var
     def set_var(self, var):
@@ -1378,6 +1527,13 @@ class Variable_Reference:
 
 
 class WriteStatement:
+    
+    def to_dict(self):
+        res = {}
+        res['type'] = 'syscall'
+        res['call'] = 'write'
+        res['data'] = self.data
+        return res
     
     def get_var_names_to_resolve(self):
         return self.data.get_var_names_to_resolve()
@@ -1398,6 +1554,13 @@ class WriteStatement:
 
 
 class AST:
+
+    def to_dict(self):
+        res = {}
+        res['classes'] = {}
+        for class_name, class_record in self.class_records.items():
+            res['classes'][class_name] = class_record.to_dict()
+        return res
 
     cur_constructor_id = 1
     cur_field_id = 1
