@@ -86,8 +86,6 @@ def p_program_error(p):
 ### Section 2: Class Declarations
 def p_class_declaration(p):
     'class_declaration : CLASS IDENTIFIER class_extends_modifier LBRACE  class_body_declarations_list RBRACE'
-
-    #def __init__(self, class_name, super_class_name, constructors, methods, fields):
     p[0] = decaf_ast.Class_Record(p[2], p[3], p[5])
 
 
@@ -141,8 +139,6 @@ def p_field_declaration(p):
     for i in p[2]:
         res.append(decaf_ast.Field_Record(i.get_name(),"temp id", "temp class", p[1][0], p[1][1],  i.get_type()))
         
-    #name, id, containing_class, visibility, applicability, data_type
-    #p[0] = decaf_ast.Field_Record(p[2].get_name(),"temp id", "temp class", p[1][0], p[1][1],  p[2].get_type())
     p[0] = res
 
     
@@ -313,14 +309,19 @@ def p_statement(p):
     | while_loop
         | for_loop
         | return_statement
-        | BREAK SEMICOLON
-        | CONTINUE SEMICOLON
         | block
         | var_declaration
         | statement_expression SEMICOLON
     '''
-   
     p[0] = p[1]
+
+def p_statement_break(p):
+    '''statement : BREAK SEMICOLON'''
+    p[0] = decaf_ast.Break_Statement()
+    
+def p_statement_continue(p):
+    '''statement : CONTINUE SEMICOLON'''
+    p[0] = decaf_ast.Continue_Statement()
 
 def p_statement_semicolon(p):
     '''statement :  SEMICOLON'''
@@ -610,9 +611,3 @@ def parse_file(file):
             
     else:
         return None
-        
-        
-
-        
-  
-    
