@@ -599,7 +599,7 @@ yacc.yacc()
 
 
 #returns the ast
-def parse_file(file):
+def generate_ast(file) -> None | decaf_ast.AST:
     r = yacc.parse(file)
 
     if r == None:

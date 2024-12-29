@@ -37,49 +37,68 @@ def print_error_msg(msg):
 
     print(f"{red_text}Error: {msg}{white_text}", file=sys.stderr)
 
+class UnresolvedIdentifier:
+    
+    def __init__(self, name : str):
+        self.name = name
+
+class LocalVariableKind(Enum):
+    FORMAL = 'formal'
+    LOCAL = 'local'
+
+
+class VariableTableEntry:
+    def __init__(self, id : int, name : str, kind : LocalVariableKind, type : decaf_typecheck.BaseType | decaf_typecheck.ClassObjectType):
+        self.id = id
+        self.name = name
+        self.kind = kind
+        self.type = type
+        
+    def to_dict(self):
+        res = {}
+        res['id'] = self.id
+        res['name'] = self.name
+        res['kind'] = self.kind.value
+        res['type'] = str(self.type)
+        return res
+    
+    def __str__(self):
+        
+        return f'VARIABLE {self.id}, {self.name}, {self.kind}, {self.type}'
+    
+        
+
 class Variable_Table:
 
     def to_dict(self):
         res = []
         for entry in self.vars:
-            res.append({'id': entry[0] , 'name' : entry[1] , 'kind' : entry[2], 'type' : entry[3]})
+            res.append(entry.to_dict())
         return res
 
 
     def __init__(self):
         
-        self.vars = []
-        self.cur_id = 1
+        self.vars : List[VariableTableEntry] = []
+        self.cur_id : int = 1
         
-    def get_variables(self) -> List[Tuple[int, str, str, str]]:
+    def get_variables(self) -> List[VariableTableEntry]:
         return self.vars
 
-   
-
-    #returns id of var 1, k ,formal, int
-    def add_variable(self,id, name, var_type ,data_type):
-        
-        self.vars.append((id, name, var_type, data_type))
+    def add_variable(self, entry : VariableTableEntry):
+        self.vars.append(entry)
 
     def __str__(self):
         return_str = ""
         for i in self.vars:
-            return_str += f'VARIABLE {i[0]}, {i[1]}, {i[2]}, {i[3]}\n'
+            return_str += f'{str(i)}\n'
         return return_str
 
-
-class Type_Record:
-    
-    def get_type(self):
-        return self.type_name
-    
-    def __init__(self, type_name):
-        self.type_name = type_name
 
 
 class Variable_Declaration:
 
-    def __init__(self, data_type, name):
+    def __init__(self, data_type_name : str, name : str):
 
 
         type_name_map = {'int' : decaf_typecheck.BaseType.INT, 'boolean' : decaf_typecheck.BaseType.BOOL, 'float' : decaf_typecheck.BaseType.FLOAT}
@@ -87,10 +106,10 @@ class Variable_Declaration:
        
         self.name = name
         
-        if data_type not in type_name_map:
-            self.type = decaf_typecheck.ClassObjectType(data_type)
+        if data_type_name not in type_name_map:
+            self.type = decaf_typecheck.ClassObjectType(data_type_name)
         else:
-            self.type = type_name_map[data_type]
+            self.type = type_name_map[data_type_name]
 
     def get_name(self):
         return self.name
@@ -193,7 +212,7 @@ class Block_Stmt:
                 for var_name, var_object_array in vars_to_resolve.items():
                     if var_name in var_to_id:
                         for i in var_object_array:
-                            i.set_var(var_to_id[var_name]) 
+                            i.set_id(var_to_id[var_name]) 
                             i.set_type(var_to_type[var_name])
                     else:
                         
@@ -492,7 +511,7 @@ class Assign_Expression:
         res['type'] = 'assign'
         res['lhs'] = self.left_hand_side.to_dict()
         res['rhs'] = self.right_hand_side.to_dict()
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         return res
         
     
@@ -541,7 +560,7 @@ class Field_Access_Expression:
         res['base_expression'] = self.base_expression.to_dict()
         res['field_name'] = self.field_name
         res['field_id'] = self.id_of_field
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         return res
 
     def get_type(self):
@@ -550,18 +569,20 @@ class Field_Access_Expression:
     
     def compute_type(self, ast, cur_class): 
         
+        
+        
         if isinstance(self.base_expression, Variable_Reference):
             
-            if str(self.base_expression.var).isdigit() == False:
-                rec = ast.get_class_record(self.base_expression.var)
+            if self.base_expression.id == False:
+                rec = ast.get_class_record(self.base_expression.var_name)
                 
                 if rec == None:
                     self.type = decaf_typecheck.BaseType.ERROR
                     print("ERROR: could not resoleve type name")
-                    raise Exception(f"haha: {self}")
+                    raise Exception(f"Could not find class record: {self.base_expression.var_name}")
                     return self.type
                 else:
-                    self.base_expression = Class_Reference_Expression(self.base_expression.var)
+                    self.base_expression = Class_Reference_Expression(self.base_expression.var_name)
         
         
         type_val : str = self.base_expression.compute_type(ast, cur_class)
@@ -620,7 +641,7 @@ class Binary_Expression:
         res['type'] = 'binary'
         res['lhs'] = self.left_expr.to_dict()
         res['rhs'] = self.right_expr.to_dict()
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         return res
     
     def get_this_expressions_to_resolve(self) -> List:
@@ -729,7 +750,7 @@ class Constant_Expression:
         res = {}
         res['type'] = 'constant'
         res['val'] = self.val
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         return res
     
     def get_this_expressions_to_resolve(self) -> List:
@@ -892,12 +913,14 @@ class Constructor_Record:
         for var_name, var_object_array in body.get_var_names_to_resolve().items():
             if var_name in params_to_id:
                 for i in var_object_array:
-                    i.set_var(params_to_id[var_name])
+                
+                    i.set_id(params_to_id[var_name])
                     i.set_type(params_to_type[var_name])
                 
 
         for i in params:
-            self.variable_table.add_variable(params_to_id[i[1]],i[1], 'formal', i[0])
+            #self.variable_table.add_variable(params_to_id[i[1]],i[1], 'formal', i[0])
+            self.variable_table.add_variable(VariableTableEntry(params_to_id[i[1]],i[1], 'formal', i[0]))
             self.params.append(params_to_id[i[1]])
 
         for i in local_var_cache:
@@ -1008,16 +1031,16 @@ class Method_Record:
         for var_name, var_object_array in body.get_var_names_to_resolve().items():
             if var_name in params_to_id:
                 for i in var_object_array:
-                    i.set_var(params_to_id[var_name])
+                    i.set_id(params_to_id[var_name])
                     i.set_type(params_to_type[var_name])
                 
 
         for i in params:
-            self.variable_table.add_variable(params_to_id[i[1]],i[1], 'formal', i[0])
+            self.variable_table.add_variable(VariableTableEntry(params_to_id[i[1]], i[1], LocalVariableKind.FORMAL, i[0]))
             self.params.append(params_to_id[i[1]])
 
         for i in local_var_cache:
-            self.variable_table.add_variable(i[1],i[0], 'local', i[2])
+            self.variable_table.add_variable(VariableTableEntry(i[1],i[0], LocalVariableKind.LOCAL, i[2]))
 
         AST.clear_local_var_cache()
 
@@ -1304,8 +1327,8 @@ class Method_Call_Expression:
         res['method_name'] = self.method_name
         res['method_id'] = self.method_id
         res['base_expression'] = self.base_expression.to_dict()
-        res['arguments'] = self.arguments
-        res['data_type'] = self.type
+        res['arguments'] = [x.to_dict() for x in self.arguments] 
+        res['data_type'] = str(self.type)
         return res
     
     def get_type(self):
@@ -1327,10 +1350,10 @@ class Method_Call_Expression:
     def compute_type(self, ast, cur_class):
         
         
-        if isinstance(self.base_expression, Variable_Reference):
-            if str(self.base_expression.var).isdigit() == False:
+        if isinstance(self.base_expression, Variable_Reference):        
+            if self.base_expression.id == None:
                 
-                rec = ast.get_class_record(self.base_expression.var)
+                rec = ast.get_class_record(self.base_expression.var_name)
                 
                 if rec == None:
                     self.type = decaf_typecheck.BaseType.ERROR
@@ -1338,7 +1361,7 @@ class Method_Call_Expression:
                     return self.type
                 else:
                     #replace it
-                    self.base_expression = Class_Reference_Expression(self.base_expression.var)
+                    self.base_expression = Class_Reference_Expression(self.base_expression.var_name)
                 
              
         
@@ -1351,7 +1374,7 @@ class Method_Call_Expression:
             
                 class_record = ast.get_class_record(base_type.get_class_name())
             else:
-                raise Exception(f"Not implemented yet: {base_type} type: {type(base_type)}")
+                raise Exception(f"Not implemented yet: {base_type} type: {type(base_type)} : {self.base_expression}")
         
         
         
@@ -1423,10 +1446,10 @@ class Auto_Expression:
     def to_dict(self):
         res = {}
         res['type'] = 'auto'
-        res['expression'] = self.operand_expression
+        res['expression'] = self.operand_expression.to_dict()
         res['op_type'] = self.inc_dec
         res['op_kind'] = self.post_pre
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         
         return res
     
@@ -1465,7 +1488,7 @@ class Class_Reference_Expression:
     def to_dict(self):
         res = {}
         res['type'] = 'class_reference'
-        res['data_type'] = self.type
+        res['data_type'] = str(self.type)
         return res
     
     def compute_type(self, ast, cur_class):
@@ -1486,44 +1509,49 @@ class Variable_Reference:
     def to_dict(self):
         res = {}
         res['type'] = 'variable_reference'
-        res['variable'] = self.var
-        res['data_type'] = self.type_name
-        
-        
+        res['variable'] = self.var_name
+        res['data_type'] = str(self.type)
+        res['id'] = self.id
         return res
 
     def get_this_expressions_to_resolve(self) -> List:
         return []
 
-    def __init__(self, var):
-        self.var = var
+    def __init__(self, var_name : str):
+        self.var_name : str = var_name
+        self.id : Optional[int] = None
+        self.type : Optional[int] = None
+        
+    def get_var_name(self):
+        return self.var_name
         
     def compute_type(self, ast, cur_class):
         
-        return self.type_name
+        return self.type
     
-    def  get_type(self):
+    def get_type(self):
         
-        return self.type_name
+        return self.type
+    
+    def set_id(self, id : int):
+        self.id = id
 
-    def set_type(self, type_name):
-        self.type_name = type_name
+    def set_type(self, data_type : decaf_typecheck.BaseType | decaf_typecheck.ClassObjectType):
+        self.type = data_type
        
-    def get_var(self):
-        return self.var
-    def set_var(self, var):
-        
-        self.var = var
+    def get_var_name(self) -> str:
+        return self.var_name
+     
 
     def get_var_names_to_resolve(self):
         res = {}
         t = []
         t.append(self)
-        res[self.var] = t
+        res[self.var_name] = t
         return res
         
     def __str__(self):
-        return f'Variable({self.var})'
+        return f'Variable({self.id}, {self.var_name})'
 
 
 class WriteStatement:
@@ -1532,7 +1560,7 @@ class WriteStatement:
         res = {}
         res['type'] = 'syscall'
         res['call'] = 'write'
-        res['data'] = self.data
+        res['data'] = self.data.to_dict()
         return res
     
     def get_var_names_to_resolve(self):
