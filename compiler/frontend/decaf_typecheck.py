@@ -1,4 +1,4 @@
-import decaf_ast
+import frontend.decaf_ast as decaf_ast
 from enum import Enum
 
 
@@ -48,27 +48,3 @@ class BaseType(Enum):
     
     def __str__(self):
         return self.value
-
-
-
-#returns true iff a is a subtype of b
-def is_subtype(a : str, b : str, ast):
-
-    if a == b:
-        return True
-    
-    if a == BaseType.INT and b == BaseType.FLOAT:
-        return True
-
-    
-    if a == BaseType.NULL and isinstance(b, ClassObjectType):
-        return True
-    
-    if isinstance(a, ClassObjectType) and isinstance(b, ClassObjectType):
-        return ast.is_subclass(a.get_class_name(), b.get_class_name) 
-
-    if isinstance(a, ClassLiteralType) and isinstance(b, ClassLiteralType):
-        return ast.is_subclass(a.get_class_name(), b.get_class_name())
-
-    return False
- 

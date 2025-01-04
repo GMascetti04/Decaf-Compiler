@@ -1,9 +1,10 @@
 import sys
-import decaf_parser
+import frontend.decaf_parser as decaf_parser
 import decaf_irgen
 import argparse
 import os
 import json
+import frontend.decaf_stbuilder as decaf_stbuilder
 
 
 def modify_file_extension(file_name): 
@@ -35,6 +36,9 @@ if __name__ == "__main__":
         
         os.makedirs(build_directory, exist_ok=True)
         
+        checker = decaf_stbuilder.ASTChecker(ast)
+        checker.construct_symbol_table()
+        checker.resolve_names()
         
         gen = decaf_irgen.IRCodeGenerator(ast)
         program = gen.generate_code()
@@ -49,7 +53,7 @@ if __name__ == "__main__":
             with open(os.path.join(temp_dir, "A3.tac"), 'w') as tacFile:
                 program.print_to_file(tacFile)
         
-        with open(os.path.join(build_directory,modify_file_extension(args.infile)), 'w') as outFile:
-              outFile.write("TODO: convert IR to AMI")
+        #with open(os.path.join(build_directory,modify_file_extension(args.infile)), 'w') as outFile:
+              #outFile.write("TODO: convert IR to AMI")
     
         print(f'\033[32mCompilation Succeeded\033[0m', file=sys.stderr)

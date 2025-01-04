@@ -1,8 +1,10 @@
 import ply.yacc as yacc
-from decaf_lexer import tokens
-import decaf_ast
-import decaf_typecheck
+from frontend.decaf_lexer import tokens
+#from decaf_lexer import tokens
+import frontend.decaf_ast as decaf_ast
+import frontend.decaf_typecheck as decaf_typecheck
 import sys
+
 
 precedence = (
     ('right', 'ASSIGNMENT'),
@@ -214,23 +216,23 @@ def p_variable(p):
 ### Section 2: Methods and Constructors
 def p_method_declaration(p):
     '''method_declaration : modifier type IDENTIFIER LPAREN formals RPAREN block'''
-    p[0] = decaf_ast.Method_Record(p[3], "temp id", 'temp containing class', p[1][0], p[1][1], p[5], p[2], p[7])
+    p[0] = decaf_ast.Method_Record(p[3], 'temp containing class', p[1][0], p[1][1], p[5], p[2], p[7])
 
 
 def p_method_declaration_void_args(p):
     '''method_declaration : modifier VOID IDENTIFIER LPAREN formals RPAREN block'''
-    p[0] = decaf_ast.Method_Record(p[3], "temp id", 'temp containing class', p[1][0], p[1][1], p[5], 'void', p[7])
+    p[0] = decaf_ast.Method_Record(p[3], 'temp containing class', p[1][0], p[1][1], p[5], 'void', p[7])
 
 def p_method_declaration_void_nullary(p):
     '''method_declaration :  modifier VOID IDENTIFIER LPAREN RPAREN block'''
-    p[0] = decaf_ast.Method_Record(p[3], "temp id", 'temp containing class', p[1][0], p[1][1], [], 'void', p[6])
+    p[0] = decaf_ast.Method_Record(p[3], 'temp containing class', p[1][0], p[1][1], [], 'void', p[6])
 
 
 def p_method_declaration_return_nullary(p):
     '''method_declaration : modifier type IDENTIFIER LPAREN RPAREN block'''
 
     #name, id, containing_class, visibility, applicability, parameters, return_type, body
-    p[0] = decaf_ast.Method_Record(p[3], "temp id", 'temp containing class', p[1][0], p[1][1], [], p[2], p[6])
+    p[0] = decaf_ast.Method_Record(p[3], 'temp containing class', p[1][0], p[1][1], [], p[2], p[6])
 
 def p_formal_parameters_list(p):
     '''formal_parameters_list : COMMA formal_parameter formal_parameters_list
@@ -257,7 +259,8 @@ def p_formals(p):
 
 def p_formal_parameter(p):
     'formal_parameter : type variable'
-    p[0] = (p[1], p[2])
+    p[0] = decaf_ast.Variable_Declaration(p[1], p[2])
+    #p[0] = (p[1], p[2])
 
 
 #p[0] is tuple containing variable table and constructor body
@@ -267,6 +270,7 @@ def p_constructor_declaration(p):
 
     if len(p) == 6:
         p[0] = decaf_ast.Constructor_Record(p[2], p[1][0], [], p[5])
+        
     else:
         p[0] = decaf_ast.Constructor_Record(p[2], p[1][0], p[4], p[6])
 
@@ -278,7 +282,7 @@ def p_constructor_declaration(p):
 def p_block(p):
     'block : LBRACE statement_list RBRACE'
 
-    p[0] = decaf_ast.Block_Stmt(p[2])
+    p[0] = decaf_ast.BlockStatement(p[2])
 
    
 
@@ -543,7 +547,8 @@ def p_field_access(p):
 
 def p_local_access(p):
     '''local_access : IDENTIFIER'''
-    p[0] = decaf_ast.Variable_Reference(p[1])
+    #p[0] = decaf_ast.Variable_Reference(p[1])
+    p[0] = decaf_ast.IdentifierReference(p[1])
 
 
 def p_expression_list(p):
@@ -604,6 +609,8 @@ def generate_ast(file) -> None | decaf_ast.AST:
 
     if r == None:
         return None
+
+    return r
 
     type_correct = r.type_check()
     if type_correct == True:

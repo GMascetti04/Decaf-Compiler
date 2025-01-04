@@ -175,6 +175,30 @@ class Constant:
         
     def __str__(self):
         return f'{self.value}'
+
+#for local variables
+class Variable(A3Instruction):
+    
+    def __init__(self, name, id, type):
+        self.name = name
+        self.id = id
+        self.type = type
+    
+    def __str__(self):
+        return f'{self.name}.{self.id}'
+        
+class MemoryVariable(A3Instruction):
+     
+    def __init__(self, name, id, type, base, mem_offset):
+        
+        self.name = name
+        self.id = id
+        self.type = type
+        self.base = base
+        self.mem_offset = mem_offset  
+        
+    def __str__(self):
+        return 'mem_variable'
     
 class MethodLabel(A3Instruction):
     def __init__(self, method_name : str, method_id : int):

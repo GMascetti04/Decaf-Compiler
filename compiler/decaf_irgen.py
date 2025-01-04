@@ -1,6 +1,6 @@
-import decaf_ast
+import frontend.decaf_ast as decaf_ast
 import decaf_absmc
-import decaf_typecheck
+import frontend.decaf_typecheck as decaf_typecheck
 import decaf_ir
 from typing import Dict, List, Tuple
 
@@ -106,7 +106,9 @@ class IRCodeGenerator:
                 
                 self.program.add_label(method_label)
                 
-                self.generate_body_code(method_record.get_method_body().get_statements_list())
+                
+                
+                self.generate_body_code(method_record.get_body().get_statements_list())
                 
                 self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.RET), "return from method")
                 #self.generate_method_code(method_record, method_label)        
@@ -128,7 +130,11 @@ class IRCodeGenerator:
                 expr = self.generate_expression_code(expression_record.operand_expression)
                 self.program.add_instruction(decaf_ir.ArithmeticBinaryA3Instruction(expr, expr, 1, delta_ins, decaf_ir.DataType.INT))
                 
-                return  expression_record.operand_expression.get_var_name()
+                if isinstance(expression_record.operand_expression, decaf_ast.Field_Access_Expression):
+                    raise Exception("not defined yet")
+                
+                
+                return  expr
             
             else: #post
         
@@ -166,14 +172,23 @@ class IRCodeGenerator:
             
                 expr_reg = self.generate_expression_code(expression_record.right_hand_side)
     
-                self.program.add_instruction(decaf_ir.AssignA3Instruction(expression_record.left_hand_side.get_var_name(), expr_reg))
+    
+                self.program.add_instruction(decaf_ir.AssignA3Instruction(expression_record.left_hand_side.get_name(), expr_reg))
                 
-                return expression_record.left_hand_side.get_var_name()
+                return expression_record.left_hand_side.get_name()
         
         
         if isinstance(expression_record, decaf_ast.Field_Access_Expression):
             
             reg = self.make_new_temp_var()
+            offset = self.get_instance_field_id_to_offset_map()[expression_record.id_of_field]
+            mem_var = decaf_ir.MemoryVariable(
+                expression_record.field_name, expression_record.id_of_field, expression_record.type,
+                "base", offset
+            )
+            
+            return mem_var
+            
             if isinstance(expression_record.base_expression, decaf_ast.This_Expression):
                 
                 offset = self.get_instance_field_id_to_offset_map()[expression_record.id_of_field]
@@ -236,10 +251,12 @@ class IRCodeGenerator:
             return decaf_ir.Constant(expression_record.val, new_type )
             
             
+        if isinstance(expression_record, decaf_ast.IdentifierReference):
             
-        if isinstance(expression_record, decaf_ast.Variable_Reference):
             
-            return expression_record.var_name
+            if isinstance(expression_record.get_identifier(), decaf_ast.Variable_Reference):
+                return decaf_ir.Variable(expression_record.get_identifier().var_name, expression_record.get_identifier().id, expression_record.get_identifier().type)
+            
         
         if isinstance(expression_record, decaf_ast.Unary_Expression):
             new_reg = self.make_new_temp_var()
@@ -377,7 +394,7 @@ class IRCodeGenerator:
                 func_return_reg = self.make_new_temp_var()
                 
                 
-                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, expression_record.base_expression.get_var_name()))
+                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, expression_record.base_expression.get_name()))
             
                 
                 for param_index in range(0, len(expression_record.arguments)):
@@ -398,7 +415,7 @@ class IRCodeGenerator:
         if isinstance(expression_record, decaf_ast.This_Expression):
             return "a0"
     
-        raise Exception(f"Cannot convert expression: {expression_record}")
+        raise Exception(f"Cannot convert expression: {expression_record} type: {type(expression_record)}")
         
         
     
