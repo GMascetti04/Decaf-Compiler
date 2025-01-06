@@ -55,6 +55,11 @@ class SymbolEntry:
 #for constructors and regular methods
 class FunctionSymbolTable:
     
+    def to_dict(self):
+        res = {}
+        res['symbols'] = [str(x) for x in self.symbols]
+        return res
+    
     def __init__(self, function_name : str):
         self.function_name = function_name
         self.symbols : List[SymbolEntry] = []
@@ -90,6 +95,14 @@ class FunctionSymbolTable:
         return res
 
 class ClassSymbolTable:
+    
+    def to_dict(self):
+        res = {}
+        res['class name'] = self.class_name
+        res['symbols'] = [str(x) for x in self.symbols]
+        res['children'] = [x.to_dict() for x in self.children]
+        
+        return res
     
     def __init__(self, class_name : str):
         self.class_name = class_name
@@ -150,6 +163,12 @@ class ProgramSymbolTable:
         self.children : List[ClassSymbolTable] = []
         self.symbols : List[SymbolEntry] = []
         self.cur_scope_table = self
+        
+    def to_dict(self):
+        res = {}
+        res['symbols'] = [str(x) for x in self.symbols]
+        res['children'] = [x.to_dict() for x in self.children]
+        return res
         
     def enter_method_scope(self, method_name : str):
         if not isinstance(self.cur_scope_table, ClassSymbolTable):

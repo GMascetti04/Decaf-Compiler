@@ -44,7 +44,7 @@ if __name__ == "__main__":
         program = gen.generate_code()
     
         program.create_basic_blocks()
-        
+                
         if args.save_builds:
             temp_dir = os.path.join(build_directory, 'build')
             os.makedirs(temp_dir, exist_ok=True)
@@ -52,8 +52,12 @@ if __name__ == "__main__":
                 astFile.write(json.dumps(ast.to_dict(), indent= 1))
             with open(os.path.join(temp_dir, "A3.tac"), 'w') as tacFile:
                 program.print_to_file(tacFile)
+            with open(os.path.join(temp_dir, "st.json"), 'w') as stFile:
+                stFile.write(json.dumps(checker.symbol_table.to_dict(), indent= 1))
+
         
-        #with open(os.path.join(build_directory,modify_file_extension(args.infile)), 'w') as outFile:
-              #outFile.write("TODO: convert IR to AMI")
+        with open(os.path.join(build_directory,modify_file_extension(args.infile)), 'w') as outFile:
+            #TODO: convert IR to AMI
+            pass
     
         print(f'\033[32mCompilation Succeeded\033[0m', file=sys.stderr)
