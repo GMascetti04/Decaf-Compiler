@@ -23,6 +23,13 @@ class IRCodeGenerator:
         self.cur_while_statement : int = 1
         self.cur_for_statement : int = 1
         self.cur_temp_var : int = 0
+        self.param_map : Dict[str, int] = {}
+        
+    def set_param_map(self, map: Dict[str, int]):
+        self.param_map = map
+        
+    def get_param_map(self) -> Dict[str, int]:
+        return self.param_map
         
     def get_next_for_control_flow_labels(self) -> Tuple[str, str, str, str]:
         res = (f'for_{self.cur_for_statement}_cond', f'for_{self.cur_for_statement}_body', f'for_{self.cur_for_statement}_update', f'for_{self.cur_for_statement}_end')
@@ -96,7 +103,15 @@ class IRCodeGenerator:
             methods = class_record.get_method_records()
             for method_record in methods:
                 self.reset_temp_variable_count()
+                params = method_record.get_parameters()
+                param_map = {}
+                index = 0
+                for param in params:
+                    param_map[param.get_name()] = index
+                    index += 1
+                    #self.set_param_map()
                 
+                self.set_param_map(param_map)
                 
                 method_label = f'M_{method_record.name}_{method_record.id}'
                 
@@ -110,7 +125,7 @@ class IRCodeGenerator:
                 
                 self.generate_body_code(method_record.get_body().get_statements_list())
                 
-                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.RET), "return from method")
+                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.RET), None)
                 #self.generate_method_code(method_record, method_label)        
 
         return self.program
@@ -141,7 +156,7 @@ class IRCodeGenerator:
                 old_reg = self.make_new_temp_var()        
                 expr_reg = self.generate_expression_code(expression_record.operand_expression)
                 
-                self.program.add_instruction(decaf_ir.AssignA3Instruction(old_reg, expr_reg), "copy for postfix operator")
+                self.program.add_instruction(decaf_ir.AssignA3Instruction(old_reg, expr_reg), None)
                 
                 self.program.add_instruction(decaf_ir.ArithmeticBinaryA3Instruction(expr_reg, expr_reg, 1, delta_ins, decaf_ir.DataType.INT))
                 
@@ -172,8 +187,9 @@ class IRCodeGenerator:
             
                 expr_reg = self.generate_expression_code(expression_record.right_hand_side)
     
+                lhs = self.generate_expression_code(expression_record.get_left_expression())
     
-                self.program.add_instruction(decaf_ir.AssignA3Instruction(expression_record.left_hand_side.get_name(), expr_reg))
+                self.program.add_instruction(decaf_ir.AssignA3Instruction(lhs, expr_reg))
                 
                 return expression_record.left_hand_side.get_name()
         
@@ -253,9 +269,16 @@ class IRCodeGenerator:
             
         if isinstance(expression_record, decaf_ast.IdentifierReference):
             
-            
-            if isinstance(expression_record.get_identifier(), decaf_ast.Variable_Reference):
-                return decaf_ir.Variable(expression_record.get_identifier().var_name, expression_record.get_identifier().id, expression_record.get_identifier().type)
+            temp = expression_record.get_identifier()
+            if isinstance(temp, decaf_ast.Variable_Reference):
+                
+                map = self.get_param_map()
+                if temp.get_var_name() in map:
+                    return decaf_ir.ParameterVariable(temp.get_var_name(), map[temp.get_var_name()])
+                    
+                else:
+
+                    return decaf_ir.LocalVariable(temp.get_var_name(), temp.get_id(), temp.get_type())
             
         
         if isinstance(expression_record, decaf_ast.Unary_Expression):
@@ -276,7 +299,7 @@ class IRCodeGenerator:
             arith_ops = {
                 decaf_ast.Operation.ADD : decaf_ir.ArithmeticBinaryA3Instruction.Operation.ADD, 
                 decaf_ast.Operation.SUBTRACT : decaf_ir.ArithmeticBinaryA3Instruction.Operation.SUB,
-                 decaf_ast.Operation.MULTIPLY : decaf_absmc.Instruction.IMUL, 
+                 decaf_ast.Operation.MULTIPLY : decaf_ir.ArithmeticBinaryA3Instruction.Operation.MULT, 
                  decaf_ast.Operation.DIVIDE : decaf_ir.ArithmeticBinaryA3Instruction.Operation.DIV}
             
             if expression_record.operation in arith_ops:
@@ -304,24 +327,13 @@ class IRCodeGenerator:
                 self.program.add_instruction(decaf_ir.ArithmeticBinaryA3Instruction(new_reg, left_reg, right_reg, arith_ops[expression_record.operation], decaf_ir.DataType.INT))
                     
             if expression_record.operation == 'and':
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.IMUL, [new_reg, self.generate_expression_code(expression_record.left_expr, cur_label, var_id_to_register_map), self.generate_expression_code(expression_record.right_expr, cur_label, var_id_to_register_map)], "logical and"])
+                raise Exception("and not ready yet")
                 
             if expression_record.operation == 'or':
                 
-                one_const = self.get_next_tmp_register()
+                raise Exception("or not supported yet")
                 
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.MOVE_IMMED_I, [one_const, str(1)], "#set to 1 for comparison"])
-                
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.IADD, [new_reg, self.generate_expression_code(expression_record.left_expr, cur_label, var_id_to_register_map), self.generate_expression_code(expression_record.right_expr, cur_label, var_id_to_register_map)], ""])
-                
-                
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.IGEQ, [new_reg, new_reg, one_const], ""])
-                
-                
-            arith_comps = {"lt" : decaf_absmc.Instruction.ILT, "leq" : decaf_absmc.Instruction.ILEQ, "gt" : decaf_absmc.Instruction.IGT, "geq" : decaf_absmc.Instruction.IGEQ}
+            #arith_comps = {"lt" : decaf_absmc.Instruction.ILT, "leq" : decaf_absmc.Instruction.ILEQ, "gt" : decaf_absmc.Instruction.IGT, "geq" : decaf_absmc.Instruction.IGEQ}
             
             arith_comps = {decaf_ast.Operation.LESSTHAN : decaf_ir.ArithmeticBinaryA3Instruction.Operation.LESS, decaf_ast.Operation.LESSOREQUAL :decaf_ir.ArithmeticBinaryA3Instruction.Operation.LESSEQ, decaf_ast.Operation.GREATERTHAN : decaf_ir.ArithmeticBinaryA3Instruction.Operation.GREATER, decaf_ast.Operation.GREATEROREQUAL : decaf_ir.ArithmeticBinaryA3Instruction.Operation.GREATEREQ}
                 
@@ -349,66 +361,29 @@ class IRCodeGenerator:
         
         if isinstance(expression_record, decaf_ast.Method_Call_Expression):
                    
-            if isinstance(expression_record.base_expression, decaf_ast.Class_Reference_Expression):
-                
-                func_return_reg = self.make_new_temp_var()
-
-                
-                for param_index in range(0, len(expression_record.arguments)):
-                    
-                    arg_reg = self.generate_expression_code(expression_record.arguments[param_index])
-                    
-                    self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, arg_reg))
-                    
-                
-                call_label = f'M_{expression_record.method_name}_{expression_record.method_id}'
-                
-                
-                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.CALL, call_label))
-                
-                pass
-            elif isinstance(expression_record.base_expression, decaf_ast.Field_Access_Expression):
-                
-                obj_reg = self.generate_expression_code(expression_record.base_expression, cur_label, var_id_to_register_map)
-                   
-                self.save_all_regs_cur_used(cur_label)
-                
-                func_return_reg = self.get_next_tmp_register()
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.MOVE, ["a0", obj_reg], "move pointer to object to a0"])
-                
-                for param_index in range(0, len(expression_record.arguments)):
-                    
-                    self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.MOVE, [f'a{param_index + 1}', var_id_to_register_map[expression_record.arguments[param_index].var]], "pass arg into funciton"])
-                
-                call_label = f'M_{expression_record.method_name}_{expression_record.method_id}'
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.CALL, [call_label], "call function"])
-                
-                self.program.append_instruction_to_labeled_section(cur_label, [decaf_absmc.Instruction.MOVE, [func_return_reg, "a0"], "save func result"])
-                
-                self.restore_all_saved_regs(cur_label)
-                         
-            else:
-
-                func_return_reg = self.make_new_temp_var()
-                
-                
-                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, expression_record.base_expression.get_name()))
+            base = expression_record.get_base_expression()
             
-                
-                for param_index in range(0, len(expression_record.arguments)):
-                    a = self.generate_expression_code(expression_record.arguments[param_index])
-                    
-                    self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, a))
-                
-                call_label = f'M_{expression_record.method_name}_{expression_record.method_id}'
-                
-                self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.CALL, call_label))
+            if isinstance(base, decaf_ast.IdentifierReference):
+                identifier = base.get_identifier()   
+                if isinstance(identifier, decaf_ast.Class_Reference_Expression):
+                    func_return_reg = self.make_new_temp_var()
 
                 
-                self.program.add_instruction(decaf_ir.AssignA3Instruction(func_return_reg, 'RES'))
-                            
+                    for param_index in range(0, len(expression_record.arguments)):
+                        #print(expression_record.arguments)
+                        arg_reg = self.generate_expression_code(expression_record.arguments[param_index])
+                        
+                        self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.PARAM, arg_reg))
+                        
+                    
+                    call_label = f'M_{expression_record.method_name}_{expression_record.method_id}'
+                    
+                    
+                    self.program.add_instruction(decaf_ir.ControlStackA3Instruction(decaf_ir.ControlStackA3Instruction.Instruction.CALL, call_label))
+                else:
+                    raise Exception("Not implemented yet!")
+            else:
+                raise Exception(f"Not implemented yet: {expression_record}")       
                 
             return func_return_reg   
     
@@ -423,8 +398,14 @@ class IRCodeGenerator:
         
         for index, statement in enumerate(statements):
             
-            if isinstance(statement, decaf_ast.WriteStatement):                
-                self.program.add_instruction(decaf_ir.SyscallA3Instruction("write", statement.data), "Print to console")
+            if isinstance(statement, decaf_ast.WriteStatement):   
+                name = statement.get_data().get_var_name()
+                
+                if name in self.get_param_map():
+                    self.program.add_instruction(decaf_ir.SyscallA3Instruction(decaf_ir.SyscallA3Instruction.Operation.WRITE, decaf_ir.ParameterVariable(name, self.get_param_map()[name])), None)
+
+                else:
+                    self.program.add_instruction(decaf_ir.SyscallA3Instruction(decaf_ir.SyscallA3Instruction.Operation.WRITE, statement.data), "Print to console")
                 
 
             if isinstance(statement, decaf_ast.For_Statement):
