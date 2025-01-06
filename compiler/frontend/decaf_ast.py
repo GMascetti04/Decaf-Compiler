@@ -1077,7 +1077,7 @@ class Variable_Reference(Expression):
     def __init__(self, var_name : str):
         self.var_name : str = var_name
         self.id : Optional[int] = None
-        self.type : Optional[int] = None
+        self.type : Optional[decaf_typecheck.BaseType | decaf_typecheck.ClassObjectType] = None
         
     def get_var_name(self):
         return self.var_name
@@ -1092,6 +1092,9 @@ class Variable_Reference(Expression):
     
     def set_id(self, id : int):
         self.id = id
+        
+    def get_id(self) -> Optional[int]:
+        return self.id
 
     def set_type(self, data_type : decaf_typecheck.BaseType | decaf_typecheck.ClassObjectType):
         self.type = data_type
