@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, TextIO, List
+from typing import Optional, Tuple, TextIO, List, Dict
 from enum import Enum
 
 
 class A3Instruction(ABC):
     
-    def __init__(self, operation, result, arg1, arg2):
-        self.operation = operation
-        self.result = result
-        self.arg1 = arg1
-        self.arg2 = arg2
+    #def __init__(self, operation, result, arg1, arg2):
+    #    self.operation = operation
+    #    self.result = result
+    #    self.arg1 = arg1
+    #    self.arg2 = arg2
     
     @abstractmethod
     def __str__(self):
@@ -18,6 +18,55 @@ class A3Instruction(ABC):
 class DataType(Enum):
     INT = 'int'
     FLOAT = 'float'
+    
+class ParameterVariable:
+    def __init__(self, name : str, offset : int):
+        self.name = name
+        self.offset = offset
+        
+    def __str__(self):
+        return f'{self.name}@{self.offset}'
+
+class TemporaryVariable:
+    
+    def __init__(self, id : int):
+        self.id = id
+        
+    def __str__(self):
+        return f't{self.id}'
+    
+class Constant:
+    
+    def __init__(self, value : int | float, data_type : DataType):
+        self.value = value
+        self.data_type = data_type
+        
+    def __str__(self):
+        return f'{self.value}'
+
+#for local variables
+class LocalVariable:
+    
+    def __init__(self, name, id, type):
+        self.name = name
+        self.id = id
+        self.type = type
+    
+    def __str__(self):
+        return f'{self.name}.{self.id}'
+        
+class MemoryVariable():
+     
+    def __init__(self, name, id, type, base, mem_offset):
+        
+        self.name = name
+        self.id = id
+        self.type = type
+        self.base = base
+        self.mem_offset = mem_offset  
+        
+    def __str__(self):
+        return 'mem_variable'
     
 class ArithmeticBinaryA3Instruction(A3Instruction):
     
@@ -46,14 +95,19 @@ class ArithmeticBinaryA3Instruction(A3Instruction):
     def __str__(self):
         return f'{self.result} := {self.arg1} {self.operation.value} {self.arg2}'
 
+
+
 class SyscallA3Instruction(A3Instruction):
     
-    def __init__(self, instruction, arg1):
+    class Operation(Enum):
+        WRITE = 'write'
+    
+    def __init__(self, instruction: Operation, arg1 : LocalVariable):
         self.instruction = instruction
         self.arg1 = arg1
     
     def __str__(self):
-        return f'{self.instruction} {self.arg1}'    
+        return f'{self.instruction.value} {self.arg1}'    
 
 class UnaryInstruction(A3Instruction):
     
@@ -159,46 +213,6 @@ class JumpA3Instruction(A3Instruction):
 
 
 
-class TemporaryVariable(A3Instruction):
-    
-    def __init__(self, id : int):
-        self.id = id
-        
-    def __str__(self):
-        return f't{self.id}'
-    
-class Constant:
-    
-    def __init__(self, value : int | float, data_type : DataType):
-        self.value = value
-        self.data_type = data_type
-        
-    def __str__(self):
-        return f'{self.value}'
-
-#for local variables
-class Variable(A3Instruction):
-    
-    def __init__(self, name, id, type):
-        self.name = name
-        self.id = id
-        self.type = type
-    
-    def __str__(self):
-        return f'{self.name}.{self.id}'
-        
-class MemoryVariable(A3Instruction):
-     
-    def __init__(self, name, id, type, base, mem_offset):
-        
-        self.name = name
-        self.id = id
-        self.type = type
-        self.base = base
-        self.mem_offset = mem_offset  
-        
-    def __str__(self):
-        return 'mem_variable'
     
 class MethodLabel(A3Instruction):
     def __init__(self, method_name : str, method_id : int):
@@ -229,8 +243,16 @@ class ControlFlowLabel(A3Instruction):
 class IRPRogram:
     
     def __init__(self):
-        self.program = []
-        self.labels = {}
+        self.program : List[str | Tuple[A3Instruction, str]] = []
+        self.labels : Dict[str, int] = {}
+    
+    def get_program(self) -> List[str | Tuple[A3Instruction, str]]:
+        return self.program
+    
+    def get_labels(self) -> Dict[str, int]:
+        return self.labels
+    
+    
 
     def add_comment(self, comment : str):
         self.program.append(comment)
