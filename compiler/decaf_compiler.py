@@ -56,8 +56,5 @@ if __name__ == "__main__":
                 stFile.write(json.dumps(checker.symbol_table.to_dict(), indent= 1))
 
         
-        with open(os.path.join(build_directory,modify_file_extension(args.infile)), 'w') as outFile:
-            #TODO: convert IR to AMI
-            pass
     
         print(f'\033[32mCompilation Succeeded\033[0m', file=sys.stderr)
